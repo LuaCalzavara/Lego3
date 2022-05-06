@@ -6,4 +6,4 @@ Disciplina ofertada pelo prf. dr. Fernando Guarnieri e cursada no semestre 2021.
 Ementa disponível em http://www.iesp.uerj.br/wp-content/uploads/2021/01/Lego-III-Fernando-Guarnieri.pdf
 
 
-Lista 2 e Lista 3 feitas com a colaboração de Karime Lima Ribeiro e Matheus Calvanti Pestana
+Lista 2 e Lista 3 feitas com a colaboração de Karime Lima Ribeiro e Matheus Calvanti Pestana @github/mateuspestana
