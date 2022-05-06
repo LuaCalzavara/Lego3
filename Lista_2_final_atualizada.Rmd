@@ -1,0 +1,658 @@
+---
+title: "Lista 2 - Lego III"
+author: "Karime Ribeiro, Luana Calzavara, Matheus Pestana"
+date: "18/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.retina = 4, message = FALSE, warning = TRUE)
+pacman::p_load(tree, rio, janitor, tidyverse, 
+               ranger, arm, car, 
+               magrittr, effects, nnet, 
+               flextable, InformationValue,
+               caret, GGally, rpart,
+               rpart.plot, rattle)
+
+set.seed(93)
+```
+
+## Questão 1
+
+Em primeiro lugar, abriremos o banco e faremos um sumário dos dados, para entender como os mesmos estão organizados:
+
+```{r}
+load("advertencia.Rdata")
+
+summary(advertencia)
+glimpse(advertencia)
+```
+
+Notamos a existência de 6 variáveis e 1000 casos. As variáveis são: 
+
+- `adv`, que possui valores inteiros sobre o número de crianças suspensas/advertidas;
+- `tamanho`, que é binária e diz se é uma escola pequena (0) ou grande (1);
+- `zona`, numérica, que indica se a escola se localiza em uma zona de baixa/média baixa/média alta/alta renda;
+- `ppretos`, indicando a proporção de pretos na escola (entre 0 e 1);
+- `corProf`, indicando a proporção de professores pretos na escola (entre 0 e 1);
+- `crime`, indicando o nível de criminalidade no entorno da escola.
+
+Precisamos converter tanto `tamanho` quanto `zona` em fatores, para serem melhor trabalhados. Além disso, faremos um gráfico de pares para analisar as relações e correlações entre todas as variáveis do banco:
+
+```{r, fig.width=10, fig.height=10}
+advertencia %<>% 
+  mutate(across(c(tamanho, zona), as.factor))
+
+
+ggpairs(advertencia)
+```
+
+É possível perceber que há uma altíssima correlação positiva entre o número de pretos e a proporção de professores pretos na escola, chegando a 0.928, e uma altíssima correlação, dessa vez negativa, entre o crime e a proporção de pretos e de professores pretos. 
+
+Entendemos que as escolas grandes e as zonas de baixa renda devem ser as que punem mais, logo, geraremos um _offset_  baseado no log da proporção de pretos nessas escolas. Utilizaremos a proporção de pretos por entendermos que é uma base de referência. 
+
+```{r}
+advertencia2 <- advertencia %>% 
+  filter(tamanho == 1 & zona == 0)
+
+offset <- log(advertencia2$ppretos)
+
+summary(advertencia2)
+```
+
+Agora, geraremos um modelo de Poisson, considerando o offset criado anteriormente e o banco filtrado `advertencia2`:
+
+```{r}
+fit1_q1 <- glm(adv ~ ppretos + corProf + crime, family = poisson, data = advertencia2, offset = offset)
+
+arm::display(fit1_q1)
+```
+
+Observamos no modelo `fit1_q1`, a partir da função `display()` e da observação do erro padrão dos coeficientes, que a variável crime, que possui um coeficiente de -2.28, não possui significância estatística. Logo, esse indicador não nos é muito útil enquanto explicador do número de advertências. Para fins de teste, vamos remover também `corProf`, pois há alta correlação com `ppretos`. Vamos atualizar o modelo para chegarmos a um _fit_ melhor ajustado, e, em um modelo seguinte, adicionar a variável `corProf` novamente para podermos comparar os 3 modelos. 
+
+```{r}
+fit2_q1 <- update(fit1_q1,.~. - crime - corProf)
+arm::display(fit2_q1)
+
+fit3_q1 <- update(fit2_q1, .~. + corProf)
+arm::display(fit3_q1)
+```
+
+É possível notar que o modelo `fit3_q1`, que tem como fórmula `r print(fit3_q1$formula)`, possui uma diferença entre o desvio residual e o desvio nulo maior (16526.8) do que o modelo que considera `r print(fit2_q1$formula)`, que apresenta como diferença 16493.6. Façamos o Critério de Informação de Akaike (AIC):
+
+```{r}
+AIC(fit2_q1); AIC(fit3_q1)
+```
+
+Percebemos então que o modelo `fit3_q1` é melhor ajustado, ainda que possua uma variável a mais. Vamos interpretá-lo agora:
+
+Segundo o modelo, o log da contagem de advertências esperado diante do aumento de uma unidade na proporção de pretos no colégio é -11.37, controlando por `corProf`. Da mesma forma, o log do número de advertências diante do aumento de 1 unidade na proporção de professores pretos é -1.42, mostrando que o efeito de `ppretos` é bastante superior ao de `corProf`. Isso nos leva a concluir quanto maior a proporção de pretos e de professores pretos, menor o número de advertências no colégio a crianças pretas. 
+
+```{r, fig.width = 10}
+plot(predictorEffects(mod = fit3_q1))
+```
+
+
+## Questão 2
+
+Optamos, nessa questão, pela utilização de árvores de decisão para solucionar o problema. 
+
+O primeiro passo foi a abertura das duas bases, o treino e o teste, e uma análise de como os bancos estão organizados
+
+```{r}
+titanic_train <- import("Titanic/train.csv")
+titanic_test <- import("Titanic/test.csv")
+
+summary(titanic_train)
+summary(titanic_test)
+```
+
+É perceptível que existem alguns NAs que podem ser problemáticos na variável `Age`. 177 casos em um universo de 891 pode atrapalhar nossa capacidade preditiva (~20\% de NAs). Uma forma de imputar seria inserir a média das idades. Mas podemos fazer um trabalho mais minucioso se inserirmos a média das idades, agrupando tanto pelo gênero('Sex') como pela classe ('Pclass'). Vamos descobrir a média de idade desses grupos, e repetiremos o procedimento no banco de teste, que também possui NAs na mesma proporção. 
+
+```{r}
+titanic_train %>% 
+  group_by(Sex, Pclass) %>% 
+  summarise(Media_Idade = mean(Age, na.rm = T))
+
+titanic_test %>% 
+  group_by(Sex, Pclass) %>% 
+  summarise(Media_Idade = mean(Age, na.rm = T))
+```
+
+Assim, podemos fazer a imputação desses NAs e converter a variável Classe para fator: 
+
+```{r}
+titanic_train %<>%
+mutate(Age = case_when(is.na(Age) & Sex == "female" & Pclass == 1 ~ 34.6,
+                         is.na(Age) & Sex == "female" & Pclass == 2 ~ 28.7,
+                         is.na(Age) & Sex == "female" & Pclass == 3 ~ 21.8,
+                         is.na(Age) & Sex == "male" & Pclass == 1 ~ 41.3,
+                         is.na(Age) & Sex == "male" & Pclass == 2 ~ 30.7,
+                         is.na(Age) & Sex == "male" & Pclass == 3 ~ 26.5,
+                         TRUE ~ Age),
+         Pclass = as.factor(Pclass))
+
+titanic_test %<>% 
+  mutate(Age = case_when(is.na(Age) & Sex == "female" & Pclass == 1 ~ 41.3,
+                         is.na(Age) & Sex == "female" & Pclass == 2 ~ 24.4,
+                         is.na(Age) & Sex == "female" & Pclass == 3 ~ 23.1,
+                         is.na(Age) & Sex == "male" & Pclass == 1 ~ 40.5,
+                         is.na(Age) & Sex == "male" & Pclass == 2 ~ 30.9,
+                         is.na(Age) & Sex == "male" & Pclass == 3 ~ 24.5,
+                         TRUE ~ Age),
+         Pclass = as.factor(Pclass))
+```
+
+Agora, removeremos variáveis que consideramos não ter relevância dentro do nosso modelo: o nome, o número do ticket, o Id e o porto onde embarcou. 
+
+```{r}
+titanic_train %<>%
+  dplyr::select(-c(Ticket, Name, PassengerId, Embarked))
+```
+
+Através de um modelo de randomForests (usando o pacote _ranger_), vamos analisar o grau de importância de cada uma das variáveis, e a partir disso, construir uma árvore de decisão que nos permita uma capacidade preditiva alta no Kaggle. 
+
+```{r}
+mod_rf_q2 <- ranger(Survived ~ ., data = titanic_train,
+                 num.trees = 100000, mtry = 2,
+                 num.threads = 12, verbose = T, 
+                 importance = "impurity")
+
+ranger::importance(mod_rf_q2) %>% 
+  as.data.frame() %>% 
+  rownames_to_column("var") %>% 
+  rename("imp" = 2) %>% arrange(-imp) %>% 
+  qflextable()
+```
+
+Excluiremos também as variáveis SibSp e Parch, por entender que ambas tem baixa importância dentro das 100000 árvores construídas e, por conta disso, pouco relevantes ao final. 
+
+```{r}
+titanic_train %<>% 
+  dplyr::select(-c(SibSp, Parch))
+```
+
+A variável 'Fare' apresenta grande importância, mas ao mesmo tempo, possui tanto NAs quanto valores muito divergentes, além de não ser uma distribuição normal:
+
+```{r}
+titanic_train %>% 
+  ggplot(aes(x = Fare))+
+  geom_histogram(bins = 100)
+```
+
+Por conta disso, optamos por utilizar a variável `Pclass` no lugar de `Fare`, pelos seguintes motivos: 
+
+- a variável Pclass corresponde à Fare, sendo uma correspondência categórica à aquela contínua;
+- não apresenta _outliers_;
+- não apresenta NAs.
+
+Como a tarifa paga é uma combinação da classe com a cabine, removeremos também a variável `Cabin`. 
+
+```{r}
+titanic_train %<>%
+  dplyr::select(-c(Cabin, Fare))
+```
+
+Dessa forma, ao mesmo tempo que ganhamos uma boa capacidade preditiva, também mantemos o modelo enxuto e parcimonioso.
+
+Executamos agora a ávore de decisão:
+
+```{r}
+mod_tree_q2 <- tree(Survived ~ ., data = titanic_train)
+
+plot(mod_tree_q2);text(mod_tree_q2)
+```
+
+
+Se utilizarmos a função `predict()` no nosso modelo, teremos a probabilidade de sobrevivência de cada um, com valores segmentados entre 0 e 1. Todavia, precisamos estabelecer um ponto de corte que sirva como um limite: até aquele valor, o indivíduo é considerado como __Morto__, e a partir dele, como __Sobrevivente__. Um chute inicial interessante é o de 0.5, ou seja, acima de 0.5, o passageiro sobreviveu, e abaixo disso, morreu. Mas na realidade, esse número pode estar em qualquer lugar: 0.55, 0.378, 0.611111... Podemos manter o valor em 0.5, mas podemos otimizá-lo de acordo com o nosso banco de treino, buscando errar o menor número de erros de classificação __nele__ para então tentarmos no nosso banco de teste. O pacote `InformationValue` possui a função `optimalCutoff()` que resolve esse problema: ele distribui todos os valores possíveis preditos de probabilidade, arranjando-os do maior para o menor, analisando em cada um desses pontos, a taxa de verdadeiros e de falsos positivos, a especificidade e o erro de classificação. Baseando-se no menor erro de classificação, ele consegue nos mostra qual o _cutoff_ necessário para atingí-lo. A partir disso, podemos considerá-lo na hora de transformar as probabilidades para 0 e 1 e enviar ao Kaggle:
+
+```{r}
+corte <- InformationValue::optimalCutoff(actuals = titanic_train, 
+                                predictedScores = predict(mod_tree_q2), 
+                                optimiseFor = "misclasserror",
+                                returnDiagnostics = T)
+
+corte$optimalCutoff
+```
+
+O corte encontrado foi de `r corte$optimalCutoff` e será utilizado:
+
+`
+```{r}
+titanic_test %>% 
+  dplyr::select(PassengerId) %>% 
+  mutate(Prob = predict(mod_tree_q2, titanic_test),
+         Survived = ifelse(Prob <= 0.414286, 0, 1)) %>% 
+  dplyr::select(-Prob) -> gender
+
+gender %>% 
+  head(15) %>% 
+  qflextable()
+```
+
+O arquivo foi então exportado com a função `gender %>% export("gender_submission4.csv")` e submetido ao Kaggle, onde atingiu a pontuação de 0.67464, conforme a imagem abaixo:
+
+![](score_kaggle.png)
+
+Se tivéssemos usado o corte de 0.5, teríamos a seguinte tabela de confusão:
+
+```{r}
+InformationValue::confusionMatrix(actuals = titanic_train$Survived, predictedScores = predict(mod_tree_q2), threshold = 0.5) %>% 
+  rownames_to_column("Survived") %>% 
+  qflextable()
+```
+
+O que nos mostra o nosso erro: dos que realmente sobreviveram, acertaríamos apenas 156 e teríamos predito a morte de 186. Dos que morreram, teríamos acertado apenas 490 e predito que 59 sobreviveram. 
+
+Com o corte adaptado para 0.414286, temos:
+
+```{r}
+InformationValue::confusionMatrix(actuals = titanic_train$Survived, predictedScores = predict(mod_tree_q2), threshold = 0.414286) %>% 
+  rownames_to_column("Survived") %>% 
+  qflextable()
+```
+
+Erramos mais na predição da morte, mas acertamos mais na predição dos sobreviventes. 
+
+## Questão 3
+
+Em primeiro lugar, abrimos o banco de dados e observamos como os dados estão disponibilizados:
+
+```{r}
+load("gssr.rdata")
+summary(gssr)
+```
+
+A nossa variável resposta está identificada como `NATMASS`, que é dividida em 3 casos possíveis: _ABOUT RIGHT_, _TOO LITTLE_ e _TOO MUCH_. Essa variável versa sobre a opinião do entrevistado sobre os gastos do governo em políticas públicas de transporte: o certo (no sentido de medida justa, bem ajustada), muito pouco ou demais.  Temos também variáveis como `POLVIEWS`, sobre ideologia, `AGE`, com a idade do indivíduo indo de 18 a 88 anos, `SEX`, com o gênero, `SEI10`, com o indíce sócio-econômico indo de 10.6 até 92.8, e `REGION`, com a região habitada pelo indivíduo.
+
+Como faremos uma regressão multinomial, faz-se importante adaptar os nossos fatores, como por exemplo, `NATMASS`, para o nível de referência que desejamos. Como no caso dessa variável queremos que a categoria base, que será usada sempre como comparação com as outras, seja _ABOUT RIGHT_, bem como `POLVIEWS` tenha os moderados como categoria de comparação, vamos alterá-las. Vamos também padronizar as variáveis numéricas `SEI10` e `AGE`, para que as duas fiquem na mesma escala. 
+
+```{r}
+gssr %<>% 
+  mutate(NATMASS = relevel(NATMASS, ref = "ABOUT RIGHT"),
+         POLVIEWS = relevel(POLVIEWS, ref = "MODERATE")) 
+
+gssr_scale <- gssr %>% 
+  dplyr::select(SEI10, AGE) %>% 
+  scale() %>% 
+  as.data.frame()
+
+gssr %>% 
+  dplyr::select( -SEI10, -AGE) %>% 
+  bind_cols(gssr_scale) -> gssr
+
+rm(gssr_scale)
+```
+
+Devemos notar também que existe um determinado número de NAs na nossa variável dependente, mais precisamente 153, correspondendo a 6,5\% do banco. Por opção nossa, dado o baixo número dos mesmos, não serão tratados. 
+
+Indo agora em direção ao modelo, criamos um primeiro objeto, denominado `mod1_q3`, que considera todas as variáveis, para observarmos como o mesmo performa. Utilizamos o pacote `nnet`, com a função `multinom()`. 
+
+```{r}
+mod1_q3 <- multinom(NATMASS ~ ., data = gssr)
+
+S(mod1_q3)
+```
+
+Como podemos ver no _output_ acima, que compara _TOO LITTLE_ com _ABOUT RIGHT_ e _TOO MUCH_ com _ABOUT RIGHT_, 
+
+Na interpretação global, percebemos que o indivíduo conservador  e extremamente conservador, comparados aos moderados, tende a achar menos (pelo sinal negativo) que o governo gasta muito pouco nas políticas públicas, controlando por todas as outras variáveis, comparando com achar que o governo gasta o "justo". Já indivíduos extremamente liberais, liberais, ligeiramente liberais e ligeiramente conservadores (embora esse, com um efeito pequeno),comparados aos moderados, tende a achar mais que o governo gasta muito pouco, comparado com achar que o governo gasta o certo. Isso é percebido e confirmado quando escalamos as ideologias: o efeito vai diminuindo do extremamente liberal ao ligeiramente conservador, e muda de sinal no conservador e no extremamente conservador. 
+
+O mesmo ocorre, de forma invertida, na outra categoria, _TOO MUCH_, quando comparada a _ABOUT RIGHT_. Liberais e Extremamente Liberais apresentam sinal negativo, ou seja, acham menos que o governo gasta demais, quando comparado ao gasto justo. O efeito aumenta e se torna positivo a partir de ligeiramente liberal, até extremamente conservador, que apresenta um coeficiente de 0.7153. 
+
+Quando observamos o gênero, que compara mulheres em relação à homens, percebe-se que em ambos os casos o sinal é negativo, indicando que mulheres tendem a achar menos que o governo gasta pouco e também muito, em comparação a homens. O efeito é maior em _TOO MUCH_ comparado a _ABOUT RIGHT_, mas não houve significância em nenhum dos dois. 
+
+A região também não deu significância estatística, o que faz com que possivelmente não seja uma variável interessante para o nosso modelo. 
+
+O indíce socioeconômico apresenta significância quando comparamos _TOO LITTLE_ com _ABOUT RIGHT_ mas não com _TOO MUCH_ com _ABOUT RIGHT_. 
+
+Já a Idade deu significante em ambos, indicando que quanto mais velho, maior a chance de achar que o governo ou gasta muito ou gasta pouco com políticas públicas de transporte. 
+
+Agora, reajustamos o modelo excluindo a variável região para observamos como ele se ajusta. 
+
+```{r}
+mod2_q3 <- update(mod1_q3, .~. - REGION)
+S(mod2_q3)
+```
+
+A significância se manteve nas outras variáveis, e a interpretação também. 
+
+Todavia, quando observamos a _log likelihood_ de ambos os modelos, percebemos que o modelo que contém o menor valor do índice é o modelo que inclui a variável região. Se atentarmos também ao AIC, temos que o melhor modelo, com menos AIC é o primeiro, `mod1_q3`. 
+
+```{r}
+AIC(mod1_q3)
+AIC(mod2_q3)
+```
+
+Observando os efeitos encontrados nesse primeiro modelo: 
+
+```{r, fig.width=12, fig.height=9}
+plot(predictorEffect(predictor = c("SEI10"), mod = mod1_q3))
+plot(predictorEffect(predictor = c("AGE"), mod = mod1_q3))
+plot(predictorEffect(predictor = c("POLVIEWS"), mod = mod1_q3))
+```
+
+Como pergunta de pesquisa, poderíamos buscar entender como a idade e a ideologia influenciam no entendimento sobre gastos em políticas públicas de transporte e mobilidade. Caberia também um entendimento de por quais motivos o gênero tem significância apenas em uma das categorias ( _TOO MUCH_ ) e não na outra. 
+
+## Questão 4
+
+Usando essas variáveis e algum método não paramétrico, divida a base em treino e teste, desenvolva modelos preditivos do apoio à democracia. Compare seus modelos em termos de redução de erro, de precisão, sensibilidade e especificidade.
+
+Vamos abrir o banco, fazer um breve sumário dos dados:
+
+```{r}
+load("lapopr.Rdata")
+
+summary(lapopr)
+head(lapopr)
+glimpse(lapopr)
+```
+
+Temos um banco com 1204 observações e 7 variáveis:
+
+- `apoioDem`, um fator, que demonstra o apoio à democracia
+- `idade`
+- `sexo`, também um fator
+- `reg`, para a região do país
+- `classe`, fator para a classe do indivíduo
+- `etnia`, fator para a etnia do indivíduo
+
+Vamos dividir a base em treino e teste, usando 60% da original para treino, e rodar um modelo de árvore de decisão que contenha todas as variáveis. 
+
+```{r}
+## Modelo 1 = todas as variaveis com NA 
+
+treino_mod1_q4 <- sample(1:nrow(lapopr), 
+                         0.6*nrow(lapopr))
+teste_mod1_q4 <- lapopr[-treino_mod1_q4, ]
+
+apoioDem.teste.mod1 <- teste_mod1_q4$apoioDem
+
+apoioDem.tree1 <- rpart(apoioDem ~ ., data = lapopr, subset = treino_mod1_q4)
+
+apoioDem.pred <- predict(apoioDem.tree1, teste_mod1_q4, type = "class")
+
+mod1_q4 <- table(apoioDem.pred, apoioDem.teste.mod1)
+conf_mod1_q4 <- confusionMatrix(mod1_q4) 
+
+conf_mod1_q4
+```
+
+Com o modelo acima, obtivemos uma acurácia de `r conf_mod1_q4$overall[[1]]`. Façamos agora um segundo modelo, omitindo os NAs. 
+
+```{r}
+# Modelo 2 = todas as variaveis, sem NA
+
+lapopr.semNA <- lapopr %>% 
+  drop_na()
+
+treino_mod2_q4 <- sample(1:nrow(lapopr.semNA), 
+                         0.6*nrow(lapopr.semNA))
+lapopr.semNA.teste <- lapopr.semNA[-treino_mod2_q4,]
+
+apoioDem.teste.mod2 <- lapopr.semNA.teste$apoioDem
+apoioDem.tree2 <- rpart(apoioDem ~ ., data = lapopr.semNA, subset = treino_mod2_q4)
+apoioDem.pred <- predict(apoioDem.tree2, lapopr.semNA.teste, type = "class")
+
+mod2_q4 <- table(apoioDem.pred, apoioDem.teste.mod2)
+conf_mod2_q4 <- confusionMatrix(mod2_q4)
+conf_mod2_q4
+```
+
+Com o modelo acima, obtivemos uma acurácia de `r conf_mod2_q4$overall[[1]]`.
+
+Repetiremos o mesmo feito anteriormente para outros modelos:
+
+```{r}
+## Modelo 3
+
+treino_mod3_q4 <- sample(1:nrow(lapopr ), 
+                 0.6*nrow(lapopr.semNA)) 
+lapopr.teste.mod3 <- lapopr[-treino_mod3_q4,]
+
+apoioDem.teste.mod3 <- lapopr.teste.mod3$apoioDem
+apoioDem.tree3 <- rpart(apoioDem ~ idade + sexo + reg + classe + relig, data = lapopr, subset = treino_mod3_q4)
+apoioDem.pred <- predict(apoioDem.tree3, lapopr.teste.mod3, type = "class")
+
+mod3_q4 <- table(apoioDem.pred, apoioDem.teste.mod3)
+conf_mod3_q4 <- confusionMatrix(mod3_q4) 
+
+# Modelo 4
+
+treino_mod4_q4 <- sample(1:nrow(lapopr), 0.6*nrow(lapopr.semNA))
+lapopr.teste.mod4 <- lapopr[-treino_mod4_q4,]
+apoioDem.teste.mod4 <- lapopr.teste.mod4$apoioDem
+apoioDem.tree4 <- rpart(apoioDem ~ idade + sexo + reg + classe, data = lapopr, subset = treino_mod4_q4)
+apoioDem.pred <- predict(apoioDem.tree4, lapopr.teste.mod4, type = "class")
+
+mod4_q4 <- table(apoioDem.pred, apoioDem.teste.mod4)
+conf_mod4_q4 <- confusionMatrix(mod4_q4) 
+
+# Modelo 5
+
+
+treino_mod5_q4 <- sample(1:nrow(lapopr), 0.6*nrow(lapopr.semNA))
+lapopr.teste.mod5 <- lapopr[-treino_mod5_q4,]
+apoioDem.teste.mod5 <- lapopr.teste.mod5$apoioDem
+apoioDem.tree5 <- rpart(apoioDem ~ idade + sexo + reg, data = lapopr, subset = treino_mod5_q4)
+apoioDem.pred <- predict(apoioDem.tree5, lapopr.teste.mod5, type = "class")
+
+mod5_q4 <- table(apoioDem.pred, apoioDem.teste.mod5)
+conf_mod5_q4 <- confusionMatrix(mod5_q4)
+
+# Modelo 6
+
+
+treino_mod6_q4 <- sample(1:nrow(lapopr), 0.6*nrow(lapopr.semNA))
+lapopr.teste.mod6 <- lapopr[-treino_mod6_q4,]
+apoioDem.teste.mod6 <- lapopr.teste.mod6$apoioDem
+apoioDem.tree6 <- rpart(apoioDem ~ idade + sexo, data = lapopr, subset = treino_mod6_q4)
+apoioDem.pred <- predict(apoioDem.tree6, lapopr.teste.mod6, type = "class")
+
+mod6_q4 <- table(apoioDem.pred, apoioDem.teste.mod6)
+conf_mod6_q4 <- confusionMatrix(mod6_q4)
+
+# Modelo 7
+
+
+treino_mod7_q4 <- sample(1:nrow(lapopr), 0.6*nrow(lapopr.semNA))
+lapopr.teste.mod7 <- lapopr[-treino_mod7_q4,]
+apoioDem.teste.mod7 <- lapopr.teste.mod7$apoioDem
+apoioDem.tree7 <- rpart(apoioDem ~ idade, data = lapopr, subset = treino_mod7_q4)
+apoioDem.pred <- predict(apoioDem.tree7, lapopr.teste.mod7, type = "class")
+
+mod7_q4 <- table(apoioDem.pred, apoioDem.teste.mod7)
+conf_mod7_q4 <- confusionMatrix(mod7_q4)
+
+# Modelo 8
+
+
+treino_mod8_q4 <- sample(1:nrow(lapopr), 0.6*nrow(lapopr.semNA))
+lapopr.teste.mod8 <- lapopr[-treino_mod8_q4,]
+apoioDem.teste.mod8 <- lapopr.teste.mod8$apoioDem
+apoioDem.tree8 <- rpart(apoioDem ~ idade + sexo + classe, data = lapopr, subset = treino_mod8_q4)
+apoioDem.pred <- predict(apoioDem.tree8, lapopr.teste.mod8, type = "class")
+
+mod8_q4 <- table(apoioDem.pred, apoioDem.teste.mod8)
+conf_mod8_q4 <- confusionMatrix(mod8_q4) 
+```
+
+Agora, analisando a acurácia de todos os modelos:
+
+```{r}
+tabela_acuracia <- tibble(modelos = paste0("modelo_", 1:8),
+                          acuracia = c(conf_mod1_q4$overall[[1]],
+                                       conf_mod2_q4$overall[[1]],
+                                       conf_mod3_q4$overall[[1]],
+                                       conf_mod4_q4$overall[[1]],
+                                       conf_mod5_q4$overall[[1]],
+                                       conf_mod6_q4$overall[[1]],
+                                       conf_mod7_q4$overall[[1]],
+                                       conf_mod8_q4$overall[[1]]))
+
+tabela_acuracia %>% 
+  qflextable()
+```
+
+Com isso, percebemos que o `r tabela_acuracia %>% arrange(-acuracia) %>% head(1) %>% pull(modelos)` foi o que apresentou a maior acurácia, chegando a `r tabela_acuracia %>% arrange(-acuracia) %>% head(1) %>% pull(acuracia)`. 
+
+Fazendo agora uma plotagem da árvore do melhor modelo (`r tabela_acuracia %>% arrange(-acuracia) %>% head(1) %>% pull(modelos)`):
+
+```{r, fig.width=10, fig.height=14}
+rattle::fancyRpartPlot(apoioDem.tree2, sub = NULL)
+```
+
+
+
+
+## Questão 5
+
+Criamos então um banco com 500 indivíduos, seguindo os parâmetros estabelecidos:
+
+```{r}
+
+pop <- 500
+filhos <- c(rep("1",pop*0.668), rep("0", pop*0.332))
+filhos <- sample(filhos, pop)
+filhos <- as.factor(filhos)
+sexo <- c(rep("F",pop*0.496), rep("M",pop*0.504))
+sexo <- sample(sexo, pop)
+sexo <- as.factor(sexo)
+str(sexo)
+saude <- rnorm(pop,0,1)
+
+renda <- c()
+for(i in 1:pop){
+  renda[i] <- rexp(1, 1/(7000 + 2000*(as.numeric(sexo[i]) - 1)))
+}
+renda.s <- scale(log(renda))
+```
+
+É solicitado pelo comando da questão que escolhamos coeficientes que façam sentido, optamos pelos respectivos valores e inserimos no objeto `satisfacao`: 
+
+`0.3, 0.4, 0.6, 0.4, 0.6`
+
+```{r}
+satisfacao <- 0.3 + 0.4*I(as.numeric(sexo)-1) + 0.6*saude + 0.4*as.numeric(filhos) + 0.6*renda.s + rnorm(500)
+```
+
+Cortamos então satistação pelos 1º e 3º quartis, criando as categorias "Insatisfeito", "Muito Satisfeito" e "Satisfeito"
+
+```{r}
+summary(satisfacao)
+
+felicidade <- case_when(satisfacao < 0.642 ~ "Insatisfeito",
+                        satisfacao > 1.481 ~ "Muito Satisfeito",
+                        TRUE ~ "Satisfeito")
+
+fake_base <- data.frame("satisfacao" = felicidade,
+                        "renda" = renda.s,
+                        "saude" = saude,
+                        "filhos" = filhos,
+                        "sexo" = sexo)
+
+fake_base %<>% 
+  mutate(satisfacao = as.factor(satisfacao))
+
+summary(fake_base)
+```
+
+Criando agora dois modelos possíveis para a análise:
+
+```{r}
+mod1_q5 <- MASS::polr(satisfacao ~ ., data = fake_base)
+S(mod1_q5)
+
+mod2_q5 <-  MASS::polr(satisfacao ~ filhos + sexo + renda.s, data = fake_base)
+S(mod2_q5)
+```
+
+Agora, é solicitado que façamos, utilizando o predict, matrizes de confusão comparando os modelos com os dados "corretos", ou seja, aqueles que inventamos. Utilizaremos, para tal, o modelo 1 (`mod1_q5`), dado que os coeficientes foram mais próximos dos dados que criamos: 
+
+```{r}
+fake_base_pred <- fake_base %>% 
+  mutate(satisfacao_pred = predict(mod1_q5))
+
+confusionMatrix(fake_base$satisfacao, fake_base_pred$satisfacao_pred)
+```
+
+Atentando agora à interpretação do primeiro modelo, a partir de cenários:
+
+- Considerando o cenário de homens com filhos, renda alta (0.707, ou seja, 3º quartil), saúde também boa (0.6127, 3º quartil), temos que a probabilidade dele ser "muito satisfeito" é de:
+
+```{r}
+prob_hrf <- invlogit(coef(mod1_q5)[[1]] * 0.707 + 
+           coef(mod1_q5)[[2]] * 0.6127 +
+           coef(mod1_q5)[[3]] * 1 +
+           coef(mod1_q5)[[4]] * 1 +
+           mod1_q5$zeta[[2]])
+
+paste("A probabilidade é de", round(prob_hrf*100, digits = 2), "%")
+```
+
+- Considerando o mesmo cenário que o anterior, mudando somente o gênero:
+
+```{r}
+prob_mrf <- invlogit(coef(mod1_q5)[[1]] * 0.707 + 
+           coef(mod1_q5)[[2]] * 0.6127 +
+           coef(mod1_q5)[[3]] * 1 +
+           coef(mod1_q5)[[4]] * 0 +
+           mod1_q5$zeta[[2]])
+
+paste("A probabilidade é de", round(prob_mrf*100, digits = 2), "%")
+```
+
+- Considerando ainda uma mulher, mas sem filhos:
+
+```{r}
+prob_mrs <- invlogit(coef(mod1_q5)[[1]] * 0.707 + 
+           coef(mod1_q5)[[2]] * 0.6127 +
+           coef(mod1_q5)[[3]] * 0 +
+           coef(mod1_q5)[[4]] * 0 +
+           mod1_q5$zeta[[2]])
+
+paste("A probabilidade é de", round(prob_mrs*100, digits = 2), "%")
+```
+
+- Considerando ainda uma mulher, sem filhos, mas pobre:
+
+```{r}
+prob_mps <- invlogit(coef(mod1_q5)[[1]] * -0.606 + 
+           coef(mod1_q5)[[2]] * 0.6127 +
+           coef(mod1_q5)[[3]] * 0 +
+           coef(mod1_q5)[[4]] * 0 +
+           mod1_q5$zeta[[2]])
+
+paste("A probabilidade é de", round(prob_mps*100, digits = 2), "%")
+```
+
+- Considerando ainda a mulher pobre sem filhos, com saúde ruim:
+
+```{r}
+prob_mps_sauderuim <- invlogit(coef(mod1_q5)[[1]] * -0.606 + 
+           coef(mod1_q5)[[2]] * -3.2675 +
+           coef(mod1_q5)[[3]] * 0 +
+           coef(mod1_q5)[[4]] * 0 +
+           mod1_q5$zeta[[2]])
+
+paste("A probabilidade é de", round(prob_mps_sauderuim*100, digits = 2), "%")
+```
+
+- Considerando ainda um homem pobre sem filhos, com saúde ruim:
+
+```{r}
+prob_hps_sauderuim <- invlogit(coef(mod1_q5)[[1]] * -0.606 + 
+           coef(mod1_q5)[[2]] * -3.2675 +
+           coef(mod1_q5)[[3]] * 0 +
+           coef(mod1_q5)[[4]] * 1 +
+           mod1_q5$zeta[[2]])
+
+paste("A probabilidade é de", round(prob_hps_sauderuim*100, digits = 2), "%")
+```
+
+Como podemos perceber modificando os cenários, a renda para o homem é muito mais sensível, gerando maior variação na probabilidade. A saúde também apresenta grande sensibilidade em todos os cenários.  Comparando com as mulheres, os homens precisam de maior aumento na renda (ainda que originalmente haja uma dispraridade de recebimentos) para aumentar a satisfação. Essa interpretação pode ser percebida através da plotagem dos efeitos:
+
+```{r, fig.height=10, fig.width=10}
+plot(predictorEffects(mod1_q5))
+```
+
