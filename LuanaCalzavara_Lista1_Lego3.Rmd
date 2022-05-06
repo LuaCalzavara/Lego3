@@ -1,0 +1,880 @@
+---
+title: "Lista 1 de Lego 3"
+author: "Luana Calzavara"
+date: "10/04/2021"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(arm)
+library(tidyverse)
+library(data.table)
+library(DT)
+library(stargazer)
+library(flextable)
+library(sjPlot)
+library(effects)
+```
+
+## 1
+
+
+### 1.a 
+  Em $Y_i$ ~ $f(y|\theta, \alpha)$, temos o componente estocástico. 
+  Isto é, a representação da distribuição da nossa variável aleatória $Y_i$, dado $\theta$ e $\alpha$.
+ ~  nos indica como está distribuída a nossa variável aleatória.  Segundo Gelman and Hill(2006:13), distribuição é um conjunto de obejtos não identificados. Quando utilizamos o sinal ~ , queremos indicar que $Y_i$ se distribui conforme a função seguinte, dado os parâmetros $\theta$ e $\alpha$. 
+ 
+ 
+
+
+### 1.b 
+
+ 
+ $f(.)$ indica a função pela qual se distribui os parâmetros que resumem a variável dependente.Ele caracteriza o componente estocástico.Parâmetros são um resumo numérico feito sobre uma população em uma inferência. No exemplo indicado, $\theta$, em um modelo linear, é O valor esperado, em média, de $Y_i$. Quando a variável dependente é dicotômica, temos um $\pi$, em seu lugar, indicamento a probabilidade de $y_i = 0$ ou $y_i = 1$.   $\alpha$, pode ser outro parâmetro, como desvio-padrão ou variância.
+  
+  
+  Já $g(.)$ descreve o componente sistemástico. Isto é, como cada observação da var. dependente se resume em determinado $\theta_i$. No nosso caso, $\theta_i$ é igual a função $g(.)$, para cada valor das variáveis dependentes $X$ e seus respectivos $\beta$. Cada observação $i$ tem seu respectivo $\theta_i$ .(King, 1987)
+  
+
+### 1.c
+
+  $\theta$ é o parâmtro que resume certa informação do conjunto de observações da variável dependente. Creio que $\theta_i$, possui o $i$ por poder corresponder a diferentes observações, e o $\alpha$,não, por se tratar de um parâmetro auxiliar (King, 1987: 10)
+
+
+### 1.d 
+
+  Dizer que $Y_i$ é uma variável aleatória significa que ela foi produzida a partir de dados randomizado, não ao acaso. Mas que foi produzida de forma independente, cada uma de suas observações.
+  
+  
+  Quando utilizamos o $y_i$, em minúsculo, estamos nos referindo as observações que compõem nossa variável dependente.
+  
+  
+### 1.e
+
+  $x_i$ é um dos possíveis valores que a variável indpendente $X$ pode assumir no modelo estatísitico. E $\beta$ siginifica o efeito e impacto de $X$ na nossa variável dependente.
+  
+
+## 2 
+
+ 
+
+$$
+  P(trabalhar | C, M) = \pi = logit^{-1}(1.336 - 1.576C - 0.004M)
+$$
+
+ 
+
+
+ Sendo, $C=$ ter filhos  , e $M =$ ser casada com a renda do marido em salários mínimos
+
+ 
+
+### 2.a
+
+
+  Probalidade de uma  mulher entre 21 e 30 anos que não tem filhos e nem é casada trabalahr fora:
+
+
+```{r 2a}
+pr2a <- invlogit(1.336 - 1.576*0 - 0.004 * 0)
+pr2a
+```
+ 
+
+ 
+ Quando $C = 0$, e $M = 0$, há 79,18% de probabilidade da mulher trabalhar fora.
+
+ 
+### 2.b
+Qual a diferença na probabilidade de trabalhar fora quando uma mulher tem filhos?   
+
+ 
+
+
+```{r 2b}
+pr2b <- invlogit(1.336 - 1.576*1 - 0.004 * 0) - invlogit(1.336 - 1.576*0 - 0.004 * 0)
+pr2b
+```
+
+ 
+  
+  A probabilidade de uma mulher solteira e com filhos é 35% menor do que uma mulher solteira e sem filhos.
+
+  
+
+### 2.c 
+
+Qual a diferença na probabilidade de trabalhar fora entre mães solteiras e mães casadas com maridos que ganham 2 SM?
+ 
+
+  Ou seja, na primeira situação,  $C = 1$ e $M = 0$; e na segunda,  $C = 1$, e $M = 2$ :
+
+ 
+
+```{r 2c}
+pr2c <- invlogit(1.336 - 1.576*1 - 0.004*0) - invlogit(1.336 - 1.576*1 - 0.004*2)
+pr2c
+```
+
+ 
+
+  A probabilidade de uma mãe solteira trabalhar, comparado a uma mãe casa com renda do marido igual a 2M, é de 0.19%.
+
+ 
+
+## 3
+
+ 
+
+  Sabendo que:
+
+ 
+
+
+$$
+logit(Pr) = \beta_0 + \beta_i*x 
+$$
+
+ 
+
+  E com as informações de que: 
+
+ 
+
+
+$$
+Pr(EM | R = 0 ) = 0.27    
+$$
+
+e
+
+$$
+Pr (EM | R = 12) = 0.88
+$$
+
+ 
+
+ Sendo $EM$= terminar Ensino Médio, e $R$ = renda dos pais, em receita com base de R$10.000,00. Ao substituirmos as informações na equação de logit, temos:
+
+ 
+
+
+$$
+logit(Pr(EM|R)) = \beta_0 + \beta_1*R 
+$$
+
+ 
+
+
+  Para encontrar $\beta_0$,  quando $Pr(EM | R = 0 ) = 0.27$ :
+
+
+$$
+logit(0.27) = \beta_0 + \beta_1*0
+$$
+$$
+logit(0.27) = \beta_0
+$$
+
+
+  Logo
+
+  
+```{r 3a}
+beta0 <- logit(0.27)
+beta0
+```
+
+$$
+\beta_0 = -0.9946
+$$
+
+ 
+
+  Para descobrirmos $\beta_1$, quando  $Pr (EM | R = 12) = 0.88$ e com $\beta_0$ já conhecido:
+
+ 
+  
+
+$$
+logit(0.88) = -0.9946 + \beta_1*12
+$$
+``` {r 3b}
+beta1 = (logit(0.88) + 0.9946)/12
+beta1
+```
+
+
+  Logo
+  
+  
+$$
+\beta_1 = 0.2489
+$$
+
+ 
+  
+  Por fim, o modelo de regressão logística consiste em:
+
+ 
+  
+$$
+logit(Pr(EM|R)) =  -0.9946 + 0.2489*R 
+$$
+
+ 
+
+## 4 
+
+
+  Seguindo a distribuição da probabilidade de Bernoulli:
+  
+  
+$$
+p(y_i) = Pr(Y_i = y_i) = \pi^{y_i}(1 - \pi)^{1 - y_i}
+$$
+
+  Para $y_i = 0$ :
+  
+$$
+p(0) = Pr(Y_i = 0) = \pi^{0}(1 - \pi)^{1 - 0} \\
+p(0) = 1(1 - \pi)\\
+p(0) = 1 - \pi
+$$
+
+
+  Para  $y_i =1$ :
+  
+  
+$$
+p(1) = Pr(Y_i = 1) = \pi^{1}(1 - \pi)^{1 - 1} \\
+p(1) = \pi(1 - \pi)^{0} \\
+p(1) = \pi
+$$
+
+## 5
+
+
+Quando a $\pi_i = 0.5$, temos a região da curva de probabilidade onde esta se encontra mais linear. É o ponto de inclinação máxima, onde a relação entre $X$ e $\pi$é quase linear. Logo temos que :
+
+$$
+ logit(0.5) = \alpha + \beta x \\
+ 0 = \alpha + \beta x
+$$
+
+
+  Ao derivarmos a reta tangencial no ponto em que $\pi = 0.5$, e substituirmos o resultado na equação anterior, temos que:
+  
+
+$$
+\beta [\epsilon^{\alpha +\beta x_i} / (1+\epsilon^{\alpha +\beta x_i})^{2}] \\
+\beta[\epsilon^{0} / (1 + \epsilon^{0})^2] \\
+\beta[1 / 2^{2}] \\
+\beta/4
+$$
+
+## 6
+
+```{r 6 base}
+folha <- fread("dataFolha.csv", encoding = "UTF-8")
+head(folha)
+summary(folha)
+
+
+
+folha$bozo <- as.factor(folha$bozo)
+folha$idade <- as.factor(folha$idade)
+folha$sexo <- as.factor(folha$sexo)
+folha$partido <- as.factor(folha$partido)
+folha$regiao <- as.factor(folha$regiao)
+folha$escola <- as.factor(folha$escola)
+folha$rendaf <- as.factor(folha$rendaf)
+folha$raca <- as.factor(folha$raca)
+folha$religiao <- as.factor(folha$religiao)
+
+folha <- folha %>% 
+  mutate(religiaoUnido = case_when( religiao == "  Evangélica Pentecostal" ~ "evangelica",
+                                    religiao == "  Evangélica Tradicional" ~ "evangelica",
+                                    religiao == "  Evangélica Neo Pentecostal" ~ "evangelica",
+                                    religiao == "  Outras Evangélicas" ~ "evangelica",
+                                    religiao == "Não tem religião nenhuma / Agnóstico" ~ "ateu",
+                                    religiao == "É ateu/ não acredita em Deus" ~ "ateu",
+                                    religiao == "Católica" ~ "catolica",
+                                    religiao == "Espírita Kardecista, espiritualista" ~ "espiritismo_ou_matriz_africana",
+                                    religiao == "Umbanda, Candomblé ou outras religiões afro-brasileiras" ~ "espiritismo_ou_matriz_africana",
+                                    religiao == "Outra religião" ~ "Outra religiao",
+                                    religiao == "Judaica" ~ "Outra religiao"))
+folha$religiaoUnido <- as.factor(folha$religiaoUnido)
+
+xtabs(~ bozo, data = folha) #menos da metade votou bozo
+xtabs(~ bozo + religiaoUnido, data = folha) 
+xtabs(~bozo + sexo, data = folha)
+xtabs(~ bozo + raca, data = folha)
+xtabs(~ bozo + escola, data = folha)
+xtabs(~ bozo + idade, data = folha)
+xtabs(~ bozo + rendaf, data = folha)
+xtabs(~ bozo + regiao, data = folha)
+
+```
+  Unimos as religões sobre as principais denominações para diminuir os níveis desta variável.
+  Observando as frequências, podemos ter um pouco ideia sobre a base e como cada grupo se comportou com relação ao voto em Bolsonaro, e termos algum indício de possíveis relações entre as variáveis. Vimos que mais da metade da amostra não votou no atual presidente. Os mais favoráveis são do sexo masculino. Das outras variáveis, aparentemente, a tendência é o voto contra-bolsonaro. Analisaremos melhor isto conforme a análise dos modelos de regressão logística.
+  
+
+
+*Testando sem interações
+
+``` {r 6 modelos}
+fit1_6 <- glm(bozo ~ sexo, data = folha, family = "binomial")
+fit2_6 <- glm(bozo ~ sexo + religiaoUnido, data = folha, family = "binomial")
+fit3_6 <- glm(bozo ~ sexo + religiaoUnido + raca , data = folha, family = "binomial")
+fit4_6 <- glm(bozo ~ sexo + religiaoUnido + raca  + regiao, data = folha, family = "binomial")
+fit5_6 <- glm(bozo ~ sexo + religiaoUnido + raca  + regiao + escola, data = folha, family = "binomial")
+fit6_6 <- glm(bozo ~ sexo + religiaoUnido + raca  + regiao + escola + rendaf, data = folha, family = "binomial")
+fit7_6 <- glm(bozo ~ sexo + religiaoUnido + raca  + regiao + escola + rendaf + idade, data = folha, family = "binomial")
+
+stargazer(fit1_6, fit2_6, fit3_6, fit4_6, fit5_6, fit6_6, fit7_6, type = "text",
+          
+          no.space = TRUE, # to remove the spaces after each line of coefficients
+
+          column.sep.width = "3pt", # to reduce column width
+
+          font.size = "small" # to make font size smaller
+          )
+```
+  
+  
+  Pertencer ao sexo masculino se mostrou significante e positivo em todos os modelos. Tal qual a religão Evangélica, e com um efeito alto. Dentre as raças, nenhuma se mostrou significativa.
+Em região, nordeste apresenta um efeito alto com sinal negativo, o que significa menor probabilidade da pessoa votar no Bolsonaro, sendo nordestina, comparado as demais localidades.
+Em escolaridade, todas se mostraram significantes e positivas, e com uma magnitude alta, de $\beta$ > 1.
+  A renda se mostrou significativa acima de 5 S.M.
+  
+
+
+* Testando novo modelo e com interações
+
+``` {r 6 novos modelos}
+fit8_6 <- glm(bozo ~ regiao + sexo + escola + sexo*escola, data = folha, family = "binomial")
+display(fit8_6)
+fit9_6 <- glm(bozo ~ sexo + escola + sexo*escola, data= folha, family =  "binomial")
+display(fit9_6)
+fit10_6 <- glm(bozo ~ sexo + raca+ escola + sexo*raca,  data= folha, family =  "binomial")
+display(fit10_6)
+```
+
+  Observamos que as variáveis sozinhas tem significância, mas a perdem quando em interação. Até o sinal se mostra diferente do que esperaríamos, o impacto de ser dos sexo masculino e variações na escolaridade se mostrou negativo. 
+
+
+
+  Analisando o residual deviance:
+
+```{r }
+tibble::tibble( Modelo = c("Intercepto","Fit1_6", "Fit2_6", "Fit3_6","Fit4_6", 'fit5_6', 'fit6_6',' fit7_6', "fit8_6", "fit9_6", "fit10_6"),
+                Deviance = c(fit1_6$null.deviance,fit1_6$deviance, fit2_6$deviance,
+                             fit3_6$deviance, fit4_6$deviance,
+                             fit5_6$deviance, fit6_6$deviance,
+                             fit7_6$deviance, fit8_6$deviance,
+                             fit9_6$deviance, fit10_6$deviance)) %>% 
+  qflextable() 
+```
+    De todos os modelos rodados, percebemos uma queda maior no residual deviance de fit5_6, fit_6, fit7_6. Este último inclui todas as variáveis, logo, é bem possível que tal redução e seja atribuido a isso. O fit10_6 possui menos variáveis, e tem uma queda considerável na residual deviance. O problema deste é que possui 2 erros padrões com um valor muito alto. 
+    Nesse sentido, vamos comparar os gráficos de resíduos de fit5_6, fit_6, fit10_6 e decidirmos pelo melhor.
+
+```{r 6 comp}
+binnedplot(x = fit5_6$fitted.values,y = fit5_6$residuals,  main=" Fit5_6 binned residual plot")
+
+binnedplot(x = fit6_6$fitted.values,y = fit6_6$residuals, main=" Fit6_6 binned residual plot")
+
+binnedplot(x = fit10_6$fitted.values,y = fit10_6$residuals, main=" Fit10_6 binned residual plot")
+```
+
+
+
+  Analisando os resíduos, os que se encontram mais perto da média zero são os encontrados no modelo fit5_6.
+  
+
+```{r 6 interpretacao}
+invlogit(coefficients(fit5_6))
+```
+  A probabilidade de votar no Bolsonaro aumenta em 70% se a pessoa for homem, quando comparado a ser mulher. Há o aumento de 73% nesse voto se sua religiosidade for evangélica, comparada as demais. Se for branco, há 45% de probabilidade a mais no voto, em relações as outras. 
+  Já ser da região Nordeste apresenta um impacto negativo, de menos 24% de votar em Bolsonaro, comparado as outras regiões.
+  Já possuir o nível educacional de ensino superior completo aumenta 78% a probabilidade do voto em Bolsonaro, comparado as outras.
+
+
+
+## 7
+
+
+
+```{r 7}
+
+library(car)
+data("Womenlf")
+
+# transformar a variavel trabalho em binária
+
+trabMulher <- Womenlf %>% 
+  mutate(trabalho = case_when( partic == "fulltime" ~ 1,
+                               partic == "parttime" ~ 1,
+                               partic == "not.work" ~ 0))
+trabMulher <- trabMulher %>% 
+  mutate(crianca = case_when(children == "absent" ~ 0,
+                             children == "present" ~ 1))
+
+#transformando a nova variavel em factor
+trabMulher$trabalho <- as.factor(trabMulher$trabalho)
+trabMulher$crianca <- as.factor(trabMulher$crianca)
+
+trabMulher$partic <- NULL
+trabMulher$children <- NULL
+rm(Womenlf)
+
+glimpse(trabMulher)
+summary(trabMulher)
+
+#trabalho e criança são variáveis dicotômicas
+# renda marital é contínua
+# região é discreta
+
+sapply(trabMulher, function(x) sum(is.na(x)))
+```
+
+```{r 7 frequencia}
+# frequencia dado o trabalho
+xtabs( ~ trabalho, data = trabMulher)
+xtabs(~ trabalho + region, data = trabMulher)
+xtabs(~ trabalho + crianca, data = trabMulher)
+
+#talvez seja melhor dividir a renda do marido
+trabMulher$hincome5 <- trabMulher$hincome/5
+
+glimpse(trabMulher)
+```
+
+  
+*  Rodando as regressões logísticas
+
+
+```{r 7_ fit1_7}
+fit1_7 <- glm(trabalho ~ crianca, data = trabMulher, family = "binomial") 
+fit2_7 <- glm(trabalho ~ crianca + hincome, data = trabMulher, family = "binomial")
+fit3_7 <- glm(trabalho ~ crianca + hincome + region, data = trabMulher, family = "binomial")
+fit4_7 <- glm( trabalho ~ hincome + crianca + hincome*crianca, data = trabMulher, family = "binomial" )
+fit5_lm_7 <- lm(trabalho ~crianca + hincome + crianca:hincome, data = trabMulher, family = "binomial" )
+stargazer(fit1_7, fit2_7, fit3_7, fit4_7, fit5_lm_7,
+          type = "text")
+```
+  No priemiro modelo, fit1_7, tanto o intercepto (mulher trabalhar sem filhos) quanto o coeficiente de ter filhos é estatísticamente significativo. Isto é, coeficiente da estimativa não está na zona de rejeição de 2x a mais ou a menos do coeficiente de erro padrão. 
+  O coeficente sobre ter filho apresenta um sinal negativo, ou seja, a presença de criança impacta negativamente a mulher trabalhar.
+
+```{r 7_ fit1_7 interprt.}
+invlogit(coef(fit1_7))
+coef(fit1_7)[2]/4 # Beta/4 probabilidade de uma mulher trabalahr tendo um filho cai em 39%
+```
+  Utilizando a função invlogit(), conseguimos melhor interpretar a regressão logística. Neste caso, a probabilidade de uma mulher  sem filhos trabalhar é de 67%. 
+  Utilizando o $\beta / 4$, podemos, também, concluir que a probabilidade de uma mulher trabalhar, tendo filhos, cai 39,11%.
+
+ 
+  No Fit2_7, a renda marital foi acrescentada ao modelo. O sinal desta variável indica que ela impacta negativamente a mulher trabalhar. 
+  Espera-se que, defato, o sinal apontasse esse sentido. Em um casal com maior renda, vindo do marido, as probabilidade da mulher estar no mercado de trabalho tende, em tese, a ser menor. Porém, esperávamos que o efeito apresentasse uma magnitude maior.
+  
+```{r fit2_7 interpret}
+invlogit(coef(fit2_7))
+coef(fit2_7)[3]/4
+```
+
+  Calculando o impacto desta variável, a diferença máxima entre uma mulher solteira e sem filhos dado um acréscimo no salário do marido é de uma queda de 10% na probabilidade dela trabalhar.
+
+
+  Em Fit3_7, foi adicionado a variável região. Como é perceptível, os coeficientes de erro padrão de cada uma das categorias desta variável é muito grande, logo, não estatisticamente significante.  Intercepto e ter filho permanecem significativos.
+
+
+  Em fit4_7, testando a interação entre ter filho e o acréscimo na renda do marido.  A renda do marido permanece com pouca significância. A interação entre as duas variáveis também é de baixa magnitude e sem significância estatística. 
+ 
+ 
+  Por último, no modelo fit5_lm_7, onde aplicamos um modelo linear, a interação entre criança e renda do marido não obteve significância. 
+  
+  Os resultodos do efeito de ter criança e renda marital se mostram um tanto contra intuitivos, sobre o trabalho feminino. Podemos considerar que o tamanho reduzido da amostra esteja propriciando isto.
+
+
+
+``` {r 7_comparação}
+tibble::tibble( Modelo = c("Intercepto","Fit1_7", "Fit2_7", "Fit3_7","Fit4_7"),
+                Deviance = c(fit1_7$null.deviance,fit1_7$deviance, fit2_7$deviance,
+                             fit3_7$deviance, fit4_7$deviance)) %>% 
+  qflextable()
+
+``` 
+
+  Comparando a residual deviance, o melhor modelo é o segundo modelo (fit2_7), onde as todas as varíaveis e intercepto aparecem significativas.
+
+
+
+* Verificando o impacto da renda do Marido para a presença ou não de crianças: 
+  
+```{r 7 impacto}
+sjPlot::plot_model(fit4_7, type = "int")
+```
+
+
+  Podemos observar no gráfico acima que ter ou não filho diminui as probabilidades de uma mulher trabalhar, dado o aumento na renda do marido.
+  Atribuindo diferentes valores há variável criança, sim ou não, podemos ver que as duas curvas se aproximam conforme cresce a renda marital. Esta afinidade nos dá indicío de haver interação entre marido e criança.
+  
+  
+  * Usando pacote(Effects)
+  
+```{r 7 effects}
+plot(predictorEffects(fit4_7))
+invlogit(0.2)
+```
+
+
+  Analidando o gráfico acima, consiguimos observar que ter ou não criança, dado o aumento da renda do marido, não afeta, de forma diferente, probabilidade da mulher trabalhar. Um meulher sem filhos, com renda do marido = 40, tem a probabilidade de trabalhar próximo a 54%, tal qual uma mulher com filho e mesma renda marital.  
+  Ou seja, este gráfico reforça a ideia de que não há interação entre essas duas variáveis independentes, como apontado na análise dos coeficientes do modelo. 
+
+
+## 8
+
+  Os dados utilizados são provenientes do pacote(carData) e contém os dados sobre os passageiros do navio Titanic. As informações dizem respeito a status do indivíduo (passengerClass), idade (age), sexo (sex) e sobrevivência ao desastre (survived). Esta última, uma variável dicotômica.
+
+````{r 8 dados}
+data("TitanicSurvival")
+
+dim(TitanicSurvival) #1309 obs
+str(TitanicSurvival)
+summary(TitanicSurvival) #263 NA's em age
+
+nrow(TitanicSurvival[is.na(TitanicSurvival$age),])
+faltantes<- TitanicSurvival[is.na(TitanicSurvival$age),]
+summary(faltantes) #maioria de não sobreviventes
+# maioria de homens e de passageiros da terceira classe
+
+titanic.sobrev <- na.omit(TitanicSurvival) # total de 1046 obs restantes
+rm(TitanicSurvival)
+
+titanic.sobrev <- titanic.sobrev %>% 
+  mutate(sobrevivencia = case_when(survived == "yes" ~ 1,
+                                   survived == "no" ~ 0),
+         sexo = case_when(sex == "female"  ~ 1,
+                          sex == "male" ~ 0))
+titanic.sobrev <- titanic.sobrev %>% 
+  mutate(idade = case_when( age <= 20 ~ "jovem",
+                            age > 20 & age <= 59 ~ "adulto",
+                            age > 60 ~ "idoso"))
+
+titanic.sobrev$idade <- as.factor(titanic.sobrev$idade)
+titanic.sobrev$sobrevivencia <- as.factor(titanic.sobrev$sobrevivencia)
+titanic.sobrev$sexo <- as.factor(titanic.sobrev$sexo)
+titanic.sobrev <- na.omit(titanic.sobrev)
+
+str(titanic.sobrev)
+
+xtabs(~ sobrevivencia, data = titanic.sobrev) #mais da metade não sobreviveu
+xtabs( ~ sobrevivencia + sexo, data = titanic.sobrev) #mais homens morreram
+xtabs(~ sobrevivencia + passengerClass, data = titanic.sobrev) #mais sobreviveram na primeira classe, mais morreram na terceira.
+
+summary(titanic.sobrev)
+```
+
+  Em uma primeira análise dos dados, observamos que mais da metade dos passageiros não sobreviveu. Dentre os que conseguiram socorro, mais mulheres e pessoas da primeira classe conseguiram se salvar. Entre os passageiros da terceira classe, mais da metade não sobreviveu.
+  
+  
+  Agora iremos rodar algumas regressões para tentar explicar a probabilidade de sobrevivência neste contexto:
+  
+
+``` {r 8 modelos}
+fit1_8 <- glm(sobrevivencia ~ sexo, data = titanic.sobrev, family = "binomial")
+display(fit1_8)
+fit2_8 <- glm(sobrevivencia ~ sexo + idade, data = titanic.sobrev, family = "binomial")
+display(fit2_8)
+fit3_8<- glm(sobrevivencia ~ sexo + idade + passengerClass, data = titanic.sobrev, family = "binomial")
+display(fit3_8)
+fit4_8<- glm(sobrevivencia ~ sexo + idade + passengerClass + passengerClass*sexo, data = titanic.sobrev, family = "binomial")
+display(fit4_8)
+````
+
+  O último modelo, fit4_8, embora conte com um pouco de aumento no erro padrão dos coeficientes, aparenta ser o melhor modelo. A única variável sem significância estatística é a interação entre ser mulher e pertencer a segunda classe. Podemos observar também que esse é o modelo com maior queda de deviance, indicando um melhor caráter explicativo as variáveis utilizadas.
+  
+
+``` {r 8 interp}
+invlogit(coef(fit4_8))
+```
+
+
+  Podemos interpretar as probailidades de sobrevivência, $p(y) = 1$, da seguinte forma: a probabilidade de uma mulher sobreviver é de 97%, comparada aos homens. Ser idoso diminui em 13% a chance de sobrevivência, comparada as outras faixa etárias . Sobre o status, um passageiro de terceira classe  tem 22% de pribabilidade a menos de sobreviver, comparado as outras classes.
+  
+  
+  *Calculando a taxa de erro.
+```{r 8 erro}
+prev3_8 <- predict(fit3_8, type = "response")
+erro3_8 <- mean((prev3_8 > 0.5 & titanic.sobrev$sobrevivencia == 0) | (prev3_8 < .5 & titanic.sobrev$sobrevivencia == 1))
+erro3_8
+
+prev4_8 <- predict(fit4_8, type = "response")
+erro4_8 <- mean((prev4_8 > 0.5 & titanic.sobrev$sobrevivencia == 0) | (prev4_8 < .5 & titanic.sobrev$sobrevivencia == 1))
+erro4_8
+```
+
+  O modelo com menor taxa de erro é o fit4_8, com 20,88%. Um erro razoavelmente alto, o que não traz muita confiança sobre a capacidade preditiva do modelo. 
+  
+  
+```{r 8 deviance}
+tibble::tibble( Modelo = c("Intercepto","Fit1_8", "Fit2_8", "Fit3_8","Fit4_8"),
+                Deviance = c(fit1_8$null.deviance,fit1_8$deviance, fit2_8$deviance,
+                             fit3_8$deviance, fit4_8$deviance)) %>% 
+  qflextable() 
+```
+  
+
+
+  Podemos observar que o modelo que apresenta maior queda da deviança é o fit4_8, comparativamente ao modelo nulo (intercepto) e aos demais modelos. Ou seja, é o modelo que melhor explica nossa variável dependente.
+
+
+* Construção de cenário:
+
+  (1) Probabilidade de sobrevivência quando o passageiro é um homem, jovem e da primeira classe.
+
+```{r 8 cenario}
+titanic.sobrev$idade <- relevel(titanic.sobrev$idade, ref = "jovem")
+titanic.sobrev$passengerClass <- relevel(titanic.sobrev$passengerClass, ref = "1st")
+attach(titanic.sobrev)
+coefficients(fit4_8)
+
+beta <- coef(fit4_8)
+
+s1 <- 0 # sexo = masculino
+i1 <- 1 #idade jovem
+ps1 <- 1 # 1º classe
+
+prob <- invlogit(beta[1] + beta[2]*s1 + beta[3]*i1 + beta[4]*passengerClass + beta[5]*ps1*s1) - invlogit(beta[1] + beta[2]*0 + beta[3]*idade + beta[4]*passengerClass + beta[5]*passengerClass*sexo)
+mean(prob)
+
+#prob <- invlogit(beta[1] + beta[2]*sexo + beta[3]*idade + beta[4]*passengerClass + #beta[5]*passengerClass*sexo) -  invlogit(beta[1] + beta[2]*sexo + beta[3]*idade + #beta[4]*passengerClass + beta[5]*passengerClass*sexo) )
+
+#probFactor <- invlogit(beta[1] + beta[2]*s1 + beta[3]*i1 + beta[4]*idade + #beta[5]*passengerClass + beta[6]*passengerClass + beta[7]*sexo*passengerClass + #beta[8]*passengerClass*sexo) -invlogit( beta[1] + beta[2]*sexo + beta[3]*idade + #beta[4]*idade + beta[5]*passengerClass + beta[6]*passengerClass + #beta[7]*sexo*passengerClass + beta[8]*passengerClass*sexo))
+#mean(probFactor)
+
+
+```
+
+
+
+  Eu deixo aqui o script da minha tentativa de montar cenários. Na hora de escrever o comando de probabilidade, eu não soube diferenciar os fatores e seus respectivos  coeficientes, e o R chamou minha atenção para que esta operação não pudesse ser feita em Factors. Eu não soube utilizar os factor com a interação para calcular diferentes probabilidades.
+  
+  
+
+
+## 9 
+```{r 9}
+wells <- read.table("wells.dat.txt")
+
+glimpse(wells)
+
+wells$switch <- as.factor(wells$switch)
+wells$dist100 <- wells$dist/100  # para facilitar a interpretação
+
+xtabs(~ switch, data = wells)
+
+stargazer(wells, type = "text")
+```
+
+#### 9.a
+
+  Rodanda as regressões:
+  
+```{r 9 fit}
+fit1_9 <- glm(switch ~ dist100 + log(arsenic) + log(arsenic):dist100, data= wells, family = "binomial")
+stargazer(fit1_9, type = "text")
+
+```
+
+  Observando a significância das variáveis. O log de arsênico apresentou sinal positivo, indicando que quanto maior o nível de arsênico, acrescentada uma unidade a esta variável, maior a probabilidade da pessoa mudar de poço.  Em razão do sinal negativo, temos que o que diminui a probabilidade de um indivíduo mudar de poço é a distância e a interação entre a distância e log da concentação de arsênico. Isso quer dizer que se o poço seguro for muito longe, menor é a chance da pessoa buscar essa fonte. E a interação, nos diz que, mesmo com um aumento na concentração do químico, se o poço mais seguro for muito distânte, menor será a probalidade de mudança. Contudo, esta última foi a única a não apresentar significância estatística.
+
+
+```{r 9 coef}
+invlogit(coef(fit1_9))
+```
+
+#### 9.b
+
+```{r 9b}
+sjPlot::plot_model(fit1_9, type = "pred")
+```
+
+
+  Podemos observar nos gráficos acima, que:
+  Para a concentração de arsênico, a medida que cresce, aumenta a probabilidade de um indíduo se mudar para um poço mais seguro.
+  O inverso acontece com a distância. Quanto maior esta for, menor a probabilidade de trocar.
+
+  
+#### 9.c
+
+  Sabendo que a interpretação do coeficente depende do valor da variável independente utilizada, ou seja de X, realizaremos a leitura dada as seguintes comparações:
+  
+*  Acréscimo em 100 metros de distância, com arsênico constante:
+```{r 9c invlog1}
+attach(wells)
+beta <- coef(fit1_9)
+hi <- 1
+lo <- 0
+
+prob <- invlogit(beta[1] + beta[2]*hi + beta[3]*log(arsenic) + beta[4]*log(arsenic)*hi)- invlogit(beta[1] + beta[2]*lo + beta[3]*log(arsenic) + beta[4]*log(arsenic)*lo)
+mean(prob)
+```
+
+  O aumento em 100 metros diminui 21%, em média, a probabilida de mudança a um poço mais seguro
+
+
+* Diferença entre 100 e 200 metros, mantendo arsenico constante:
+
+```{r 9c invlog2}
+beta <- coef(fit1_9)
+hi <- 2
+lo <- 1
+
+prob <- invlogit(beta[1] + beta[2]*hi + beta[3]*log(arsenic) + beta[4]*log(arsenic)*hi)- invlogit(beta[1] + beta[2]*lo + beta[3]*log(arsenic) + beta[4]*log(arsenic)*lo)
+mean(prob)
+```
+    A diferença entre 100 metros a mais diminui em 20% a mudança de poço. A aumento na distância causou pouco efeito. 
+    
+* Diferença na concentração entre 0,5 e 1,0 de arsênico, mantendo distância constante
+
+```{r 9c invlog3}
+beta <- coef(fit1_9)
+hi <- 1
+lo <- 0.5
+
+prob <- invlogit(beta[1] + beta[2]*dist100 + beta[3]*log(hi) + beta[4]*dist100*log(hi))- invlogit(beta[1] + beta[2]*dist100 + beta[3]*log(lo) + beta[4]*log(lo)*dist100)
+mean(prob)
+```
+  
+  O aumento em 0.5 de arsênico tem um impacto de 14% na probabilidade de mudança, em média, com distância constante.
+  
+* Diferença na concentração entre 1,0 e 2,0 de arsênico, mantendo distância constante:
+
+```{r }
+beta <- coef(fit1_9)
+hi <- 2
+lo <- 1
+
+prob <- invlogit(beta[1] + beta[2]*dist100 + beta[3]*log(hi) + beta[4]*dist100*log(hi))- invlogit(beta[1] + beta[2]*dist100 + beta[3]*log(lo) + beta[4]*log(lo)*dist100)
+mean(prob)
+detach(wells)
+```
+ 
+  O aumento de uma unidade de concentração de arsênico é o mesmo de 0.5, 14%. Parece que esta quantia não afeta tanto a decisão de mudança ou não de poço, nestes cenários.
+
+
+
+## 10
+
+```{r 10 var}
+library(car)
+data("Cowles")
+head(Cowles)
+
+summary(Cowles)
+glimpse(Cowles)
+
+Cowles <- Cowles %>% 
+  mutate(voluntarioNum = case_when( volunteer == "yes" ~ 1,
+                                 volunteer == "no" ~ 0))
+Cowles$voluntarioNum <- as.factor(Cowles$voluntarioNum)
+
+```
+ 
+#### 10.a
+ 
+  O esperado da pesquisa é que se voluntariar ou não (var. dicotômica) dependendesse do sexo do indivíduo somado interação entre fatores de sua personalidade(extroversão e neuroticismo).
+  Sendo assim, temos o seguinte modelo
+  
+```{r 10_reg}
+fit1_10 <- glm(voluntarioNum ~ sex + neuroticism + extraversion + neuroticism:extraversion, 
+               data = Cowles, family = "binomial")
+stargazer(fit1_10, type= "text")
+```
+  
+#### 10.b
+  
+  Do ponto de vista da significância, todas as variáveis a apresentaram. A com menor magnitude e significância foi a interação entre neuroceticistmo e extroversão.
+  Como os pesquisadores imaginaram, sexo importa para o voluntariado. Ser homem possui, aqui, um efeito negativo sobre a participação. Tal qual a interação do modelo.
+  Porém, quando isoladas, tanto o neuroticismo quanto a extroversão apresentaram um efeito positivo, e bem baixo coeficiente de erro padrão.
+  Sobre a constante, ela apresenta signficância e sinal negativo.
+  
+  
+#### 10.c
+
+```{r 10c}
+# Taxa de erro
+
+prev <- predict(fit1_10, type = "response")
+erro <- mean((prev > 0.5 & Cowles$voluntarioNum == 0) | (prev < .5 & Cowles$voluntarioNum == 1))
+erro
+```
+  A taxa de erro do modelo deu um valor alto de 40,18%.
+  
+#### 10.d
+
+  Centralizando as variáveis de neuroticismo e extroversão, nós podemos interpretar a interação com mais facilidade: 
+
+````{r 10d centralização}
+Cowles <- Cowles %>% 
+  mutate(c.neuro = neuroticism - mean(neuroticism),
+         c.extrav = extraversion - mean(extraversion))
+fit2_10 <- glm(voluntarioNum ~ sex + c.neuro + c.extrav + c.neuro:c.extrav, 
+               data = Cowles, family = "binomial")
+
+stargazer(fit2_10, type = "text")
+
+coefficients(fit2_10)
+
+tibble(Variavel = c("intercepto", "sexmale", "c.neuro", 'c.extrav', "c.neuro:c.extrav"),
+       beta_4 = c(coef(fit2_10)[1]/4, coef(fit2_10)[2]/4, coef(fit2_10)[3]/4,
+                  coef(fit2_10)[4]/4, coef(fit2_10)[5])) %>% 
+  qflextable()
+
+```
+
+  A interpretação dos efeitos: houve uma perda de efeitos em todas as variáveis. Neurotismo perdeu sua significância estatística. Os sinais se mantiveram os mesmo
+ 
+  Sobre a interpretação dos coeficientes: Uma vez centralizado em torno da média, podemos de forma mais tranquila interpretar os coeficentes do modelo. 
+  A probalidade de um indivíduo, quanto todas as outras variáveis estão na média é de 44%.
+  O impacto de uma unidade de neuroticismo representa 0,12% no aumento da participação quando quando a variável extroversão estiver na média.
+  Quando o neurocetismo estiver na média, o impacto do aumento de uma unidade em extroversão é de 0.17%. 
+    Essas duas probabilidades nos indicam que a interação é muito baixa, as duas variáveis são independentes, uma da outra.
+
+
+#### 10.e
+plot(predictorEffects(cwl.glm, ~neuroticism + extraversion,
+xlevels = list(neuroticism=seq(0,24, by = 8), extraversion=seq(0,24, by = 8))),
+lines = list(multiline = T))
+
+```{r 10e plot}
+plot(predictorEffects(fit1_10, ~neuroticism + extraversion, xlevels = list(neuroticism=seq(0,24, by = 8), extraversion=seq(0,24, by = 8))), lines = list(multiline = T))
+```
+
+
+* Primeiro plot, onde eixo-x é neuroticismo:
+   
+   
+   Quando a extroversão é zero, se acrecentarmos uma unidade em neuroticismo, a probabilidade de se voluntariar tende a crescer. A diferença entre 0 e 20 unidades de neuroticismo é bem grande. Com extrov =0, quando neuro = 0, a prob de se voluntariar é quase zero. Porém, em neuro>20, a prob chega a 60%. Quando extroversão = 8, a probabilidade permanece crescente, mas a diferença entre um acréscimo muito ou pouco de neurocetismo é baixo. Porém o sinal da reta se inverte conforme aumentamos as unidades de extroversão. A partir de extroversão=16, a probabilidade de ser voluntariado diminui conforme aumentamos as unidades em neuroticismo. O mesmo ocorre com extroversão=24, porém mais acentuado. Há uma queda de 50% na probabilidade de se voluntariar.
+    
+
+  Todas as retas de probabilidade, com valores diferentes de extroversão, se encontram em um valor próximo a 20u. de neuroticismo. É possível observar como a probabilidade se modifica com o acréscimo nas duas variáveis.
+
+* Segundo plot, quando eixo-x é extrversão:
+  
+  
+  Quando neuroticismo = 0, quanto maior o acréscimo em unidades em extroversão, maior é a probabilidade de se voluntariar. Quando extraversão > 20u., a prob. atinge quase 80%. Porém, observamos que, ao aumentarmos as unidades de neuroticismo, o sinal do impacto se torna negativo. Isto é, quando neuro=24, há um queda de 0.2 na probabilidade de se voluntariar. 
+  
+  Novamente, as retas de probabilidade, se econtram em um valor entre 10 e 15u. de extroversão. 
+    
+  
+  O que podemos concluir nesta análise é que neuroticismo e extroversão possuem interação. Isto é visível pelo comportamento das retas de probabilidades, como elas se alteram conforme o incremento de unidades de neuroticismo e extroversão.
+  
